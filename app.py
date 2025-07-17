@@ -17,43 +17,27 @@ def process_image(image_path, original_filename):
     try:
         img = Image.open(image_path)
         original_width, original_height = img.size
-        original_width, original_height = map(float, (original_width, original_height))
 
-        # Gemini scaling logic
-        # https://cloud.google.com/vertex-ai/docs/generative-ai/multimodal/send-multimodal-prompts#image_requirements
-        # Large images are scaled down to fit within a 3072x3072 square.
-        # Small images are scaled up to a 768x768 square.
+        # The prompt now asks for coordinates normalized to 0-1000.
+        prompt = "Detect all prominent text in the image. The box_2d should be [ymin, xmin, ymax, xmax] normalized to 0-1000."
+        command = f"llm -m gemini-2.0-flash \"{prompt}\" -a '{image_path}'"
         
-        scaled_width, scaled_height = original_width, original_height
-        if max(original_width, original_height) > 3072:
-            if original_width > original_height:
-                scaled_width = 3072
-                scaled_height = int(3072 * original_height / original_width)
-            else:
-                scaled_height = 3072
-                scaled_width = int(3072 * original_width / original_height)
-        elif min(original_width, original_height) < 768:
-            if original_width < original_height:
-                scaled_width = 768
-                scaled_height = int(768 * original_height / original_width)
-            else:
-                scaled_height = 768
-                scaled_width = int(768 * original_width / original_height)
-
-        x_scale = original_width / float(scaled_width)
-        y_scale = original_height / float(scaled_height)
-
-        command = f"llm -m gemini-2.0-flash '细粒度描述这张图像内的文字并与坐标关联' -a '{image_path}'"
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
         output = result.stdout
 
         # Extract json from the output
         json_match = re.search(r"```json\n(.*)\n```", output, re.DOTALL)
         if not json_match:
-            print("Error: No JSON found in the output.")
-            return None
+            # Fallback for non-json output for safety
+            json_match = re.search(r"\[\s*\{.*\}\s*\]", output, re.DOTALL)
+            if not json_match:
+                print("Error: No JSON found in the output.")
+                return None
+            json_str = json_match.group(0)
+        else:
+            json_str = json_match.group(1)
 
-        bounding_boxes = json.loads(json_match.group(1))
+        bounding_boxes = json.loads(json_str)
 
         draw = ImageDraw.Draw(img)
         try:
@@ -61,24 +45,21 @@ def process_image(image_path, original_filename):
         except IOError:
             font = ImageFont.load_default()
 
-        print(x_scale, y_scale, 'x_scale')
         for box in bounding_boxes:
             box_2d = box['box_2d']
-            label = box['label']
+            label = box.get('label', '') # Use .get for safety
             
-            # Adjust coordinates based on scaling
-            y1 = int(box_2d[0] * y_scale)
-            x1 = int(box_2d[1] * x_scale)
-            y2 = int(box_2d[2] * y_scale)
-            x2 = int(box_2d[3] * x_scale)
+            # Convert normalized coordinates to absolute pixel values
+            y1 = int(box_2d[0] / 1000 * original_height)
+            x1 = int(box_2d[1] / 1000 * original_width)
+            y2 = int(box_2d[2] / 1000 * original_height)
+            x2 = int(box_2d[3] / 1000 * original_width)
 
-            # box_2d is [y1, x1, y2, x2]
-            draw.rectangle([(x1, y1), (x2, y2)], outline="red", width=2)
+            draw.rectangle([(x1, y1), (x2, y2)], outline="red", width=3)
             
             # Draw text label
             text_position = (x1, y1 - 20) # 20 pixels above the box
             draw.text(text_position, label, fill="red", font=font)
-
 
         processed_filename = f"processed_{original_filename}"
         processed_path = os.path.join(app.config['UPLOAD_FOLDER'], processed_filename)

@@ -4,6 +4,7 @@ import subprocess
 from PIL import Image, ImageDraw, ImageFont
 import re
 import uuid
+import json
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
@@ -18,6 +19,14 @@ def process_image(image_path, original_filename):
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
         output = result.stdout
 
+        # Extract json from the output
+        json_match = re.search(r"```json\n(.*)\n```", output, re.DOTALL)
+        if not json_match:
+            print("Error: No JSON found in the output.")
+            return None
+
+        bounding_boxes = json.loads(json_match.group(1))
+
         img = Image.open(image_path)
         draw = ImageDraw.Draw(img)
         try:
@@ -25,32 +34,26 @@ def process_image(image_path, original_filename):
         except IOError:
             font = ImageFont.load_default()
 
-        for line in output.splitlines():
-            match = re.search(r"'\s*位于\s*\((\d+),\s*(\d+)\)\s*附近", line)
-            if match:
-                x, y = int(match.group(1)), int(match.group(2))
-                text = line.split("'")[1]
-                
-                try:
-                    bbox = font.getbbox(text)
-                    text_width = bbox[2] - bbox[0]
-                    text_height = bbox[3] - bbox[1]
-                except AttributeError:
-                    # Fallback for older Pillow versions
-                    text_width, text_height = draw.textsize(text, font=font)
-
-
-                draw.rectangle([(x, y), (x + text_width, y + text_height)], outline="red", width=2)
-                draw.text((x, y - text_height - 5), text, fill="red", font=font)
+        for box in bounding_boxes:
+            box_2d = box['box_2d']
+            label = box['label']
+            
+            # box_2d is [y1, x1, y2, x2]
+            draw.rectangle([(box_2d[1], box_2d[0]), (box_2d[3], box_2d[2])], outline="red", width=2)
+            
+            # Draw text label
+            text_position = (box_2d[1], box_2d[0] - 20) # 20 pixels above the box
+            draw.text(text_position, label, fill="red", font=font)
 
 
         processed_filename = f"processed_{original_filename}"
         processed_path = os.path.join(app.config['UPLOAD_FOLDER'], processed_filename)
         img.save(processed_path)
         return processed_filename
-    except subprocess.CalledProcessError as e:
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
         print(f"Error processing image: {e}")
         return None
+
 
 @app.route('/')
 def index():

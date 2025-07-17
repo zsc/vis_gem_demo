@@ -8,27 +8,73 @@
         body {
             font-family: sans-serif;
             margin: 2em;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        h1, h2, h3 {
+            color: #444;
         }
         .container {
             display: flex;
             gap: 2em;
+            flex-wrap: wrap;
         }
         img {
             max-width: 100%;
             height: auto;
+            border-radius: 8px;
         }
         .image-container {
             border: 1px solid #ccc;
             padding: 1em;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            flex: 1;
+            min-width: 300px;
+        }
+        form {
+            margin-bottom: 2em;
+        }
+        input[type="file"] {
+            padding: 0.5em;
+        }
+        button {
+            padding: 0.7em 1.5em;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .loader {
+            border: 8px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 8px solid #3498db;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+            display: none; /* Hidden by default */
+            margin: 2em auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
     <h1>Gemini OCR Visualization</h1>
-    <form action="/upload" method="post" enctype="multipart/form-data">
+    <form action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
         <input type="file" name="file" accept="image/*" required>
         <button type="submit">Upload and Process</button>
     </form>
+    
+    <div id="loader" class="loader"></div>
 
     {% if original_image and processed_image %}
     <h2>Results</h2>
@@ -43,5 +89,11 @@
         </div>
     </div>
     {% endif %}
+
+    <script>
+        document.getElementById('upload-form').addEventListener('submit', function() {
+            document.getElementById('loader').style.display = 'block';
+        });
+    </script>
 </body>
 </html>

@@ -17,7 +17,7 @@
 *   **2** 位于 (369, 406) 附近
 *   **8** 位于 (78, 519) 附近
 *   **128** 位于 (175, 519) 附近
-(略)
+（略）
 
 % llm -m gemini-2.0-flash '细粒度描述这张图像内的文字并与坐标关联' -a 'uploads/8de2f4dc-e7e8-4746-a149-66cc96b73b90_截屏2025-07-16 09.50.10.png'
 Here are the bounding box detections:
@@ -31,9 +31,11 @@ Here are the bounding box detections:
   {"box_2d": [364, 139, 388, 247], "label": "| Max Tile: 2048"},
   {"box_2d": [476, 64, 511, 98], "label": "16"},
   {"box_2d": [476, 151, 511, 215], "label": "2048"},
-(略)
+（略）
+```
 
 # scaling logic
+```
 from google import genai
 from google.genai import types
 from PIL import Image
@@ -66,4 +68,4 @@ for bounding_box in bounding_boxes:
 
 print("Image size: ", width, height)
 print("Bounding boxes:", converted_bounding_boxes)
-
+```

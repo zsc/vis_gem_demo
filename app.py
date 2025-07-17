@@ -15,6 +15,34 @@ def process_image(image_path, original_filename):
     Processes the image using the llm command, draws bounding boxes, and saves the new image.
     """
     try:
+        img = Image.open(image_path)
+        original_width, original_height = img.size
+        original_width, original_height = map(float, (original_width, original_height))
+
+        # Gemini scaling logic
+        # https://cloud.google.com/vertex-ai/docs/generative-ai/multimodal/send-multimodal-prompts#image_requirements
+        # Large images are scaled down to fit within a 3072x3072 square.
+        # Small images are scaled up to a 768x768 square.
+        
+        scaled_width, scaled_height = original_width, original_height
+        if max(original_width, original_height) > 3072:
+            if original_width > original_height:
+                scaled_width = 3072
+                scaled_height = int(3072 * original_height / original_width)
+            else:
+                scaled_height = 3072
+                scaled_width = int(3072 * original_width / original_height)
+        elif min(original_width, original_height) < 768:
+            if original_width < original_height:
+                scaled_width = 768
+                scaled_height = int(768 * original_height / original_width)
+            else:
+                scaled_height = 768
+                scaled_width = int(768 * original_width / original_height)
+
+        x_scale = original_width / float(scaled_width)
+        y_scale = original_height / float(scaled_height)
+
         command = f"llm -m gemini-2.0-flash '细粒度描述这张图像内的文字并与坐标关联' -a '{image_path}'"
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
         output = result.stdout
@@ -27,22 +55,28 @@ def process_image(image_path, original_filename):
 
         bounding_boxes = json.loads(json_match.group(1))
 
-        img = Image.open(image_path)
         draw = ImageDraw.Draw(img)
         try:
             font = ImageFont.truetype("sans-serif.ttf", 15)
         except IOError:
             font = ImageFont.load_default()
 
+        print(x_scale, y_scale, 'x_scale')
         for box in bounding_boxes:
             box_2d = box['box_2d']
             label = box['label']
             
+            # Adjust coordinates based on scaling
+            y1 = int(box_2d[0] * y_scale)
+            x1 = int(box_2d[1] * x_scale)
+            y2 = int(box_2d[2] * y_scale)
+            x2 = int(box_2d[3] * x_scale)
+
             # box_2d is [y1, x1, y2, x2]
-            draw.rectangle([(box_2d[1], box_2d[0]), (box_2d[3], box_2d[2])], outline="red", width=2)
+            draw.rectangle([(x1, y1), (x2, y2)], outline="red", width=2)
             
             # Draw text label
-            text_position = (box_2d[1], box_2d[0] - 20) # 20 pixels above the box
+            text_position = (x1, y1 - 20) # 20 pixels above the box
             draw.text(text_position, label, fill="red", font=font)
 
 

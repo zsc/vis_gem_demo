@@ -35,7 +35,7 @@ Here are the bounding box detections:
 ```
 
 # scaling logic
-```
+```python
 from google import genai
 from google.genai import types
 from PIL import Image

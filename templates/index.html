@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini OCR Visualization</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2em;
+        }
+        .container {
+            display: flex;
+            gap: 2em;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        .image-container {
+            border: 1px solid #ccc;
+            padding: 1em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gemini OCR Visualization</h1>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept="image/*" required>
+        <button type="submit">Upload and Process</button>
+    </form>
+
+    {% if original_image and processed_image %}
+    <h2>Results</h2>
+    <div class="container">
+        <div class="image-container">
+            <h3>Original Image</h3>
+            <img src="{{ url_for('serve_image', filename=original_image) }}" alt="Original Image">
+        </div>
+        <div class="image-container">
+            <h3>Processed Image</h3>
+            <img src="{{ url_for('serve_image', filename=processed_image) }}" alt="Processed Image">
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>

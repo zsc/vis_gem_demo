@@ -19,7 +19,7 @@ def process_image(image_path, original_filename):
         original_width, original_height = img.size
 
         # The prompt now asks for coordinates normalized to 0-1000.
-        prompt = "Detect all prominent text in the image. The box_2d should be [ymin, xmin, ymax, xmax] normalized to 0-1000."
+        prompt = "细粒度描述这张图像内的文字并与坐标关联. The box_2d should be [ymin, xmin, ymax, xmax] normalized to 0-1000."
         command = f"llm -m gemini-2.0-flash \"{prompt}\" -a '{image_path}'"
         
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
@@ -29,7 +29,7 @@ def process_image(image_path, original_filename):
         json_match = re.search(r"```json\n(.*)\n```", output, re.DOTALL)
         if not json_match:
             # Fallback for non-json output for safety
-            json_match = re.search(r"\[\s*\{.*\}\s*\]", output, re.DOTALL)
+            json_match = re.search(r"\[\\s*\{.*\}\\s*\]", output, re.DOTALL)
             if not json_match:
                 print("Error: No JSON found in the output.")
                 return None
@@ -68,6 +68,7 @@ def process_image(image_path, original_filename):
     except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
         print(f"Error processing image: {e}")
         return None
+
 
 
 @app.route('/')

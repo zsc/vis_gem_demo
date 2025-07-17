@@ -19,8 +19,29 @@ def process_image(image_path, original_filename):
         original_width, original_height = img.size
 
         # The prompt now asks for coordinates normalized to 0-1000.
-        prompt = "细粒度描述这张图像内的文字并与坐标关联. The box_2d should be [ymin, xmin, ymax, xmax] normalized to 0-1000."
-        command = f"llm -m gemini-2.0-flash \"{prompt}\" -a '{image_path}'"
+        prompt = "Detect the all of the text boxes in the image. The box_2d should be [ymin, xmin, ymax, xmax] normalized to 0-1000. The label should be translated into Chinese."
+        command = f"""llm --schema '{
+  "type": "object",
+  "properties": {
+    "labeled_boxes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label_translated": {
+            "type": "string"
+          },
+          "box_2d": {
+            "type": "array",
+            "items": {
+                "type": "integer"
+            }
+          }
+        }
+      }
+    }
+  }
+}' '{prompt}' -a '{image_path}'"""
         
         result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
         output = result.stdout
@@ -47,7 +68,7 @@ def process_image(image_path, original_filename):
 
         for box in bounding_boxes:
             box_2d = box['box_2d']
-            label = box.get('label', '') # Use .get for safety
+            label = box.get('label_translated', '') # Use .get for safety
             
             # Convert normalized coordinates to absolute pixel values
             y1 = int(box_2d[0] / 1000 * original_height)

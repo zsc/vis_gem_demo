@@ -46,24 +46,13 @@ def process_image(image_path, original_filename):
         schema_json = json.dumps(schema_dict)
         command = f"llm --schema '{schema_json}' '{prompt}' -a '{image_path}'"
 
+        print(command) # KEEP
         result = subprocess.run(
             command, shell=True, capture_output=True, text=True, check=True
         )
-        output = result.stdout
+        json_str = result.stdout
 
-        # Extract json from the output
-        json_match = re.search(r"```json\n(.*)\n```", output, re.DOTALL)
-        if not json_match:
-            # Fallback for non-json output for safety
-            json_match = re.search(r"\[\\s*\{.*\}\\s*\]", output, re.DOTALL)
-            if not json_match:
-                print("Error: No JSON found in the output.")
-                return None
-            json_str = json_match.group(0)
-        else:
-            json_str = json_match.group(1)
-
-        bounding_boxes = json.loads(json_str)
+        bounding_boxes = json.loads(json_str)['labeled_boxes']
 
         draw = ImageDraw.Draw(img)
         try:

@@ -56,8 +56,9 @@ def process_image(image_path, original_filename):
 
         draw = ImageDraw.Draw(img)
         try:
-            font = ImageFont.truetype("sans-serif.ttf", 15)
+            font = ImageFont.truetype("/System/Library/Fonts/STHeiti Light.ttc", 15)
         except IOError:
+            print('load default')
             font = ImageFont.load_default()
 
         for box in bounding_boxes:

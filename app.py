@@ -1,4 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    send_from_directory,
+)
 import os
 import subprocess
 from PIL import Image, ImageDraw, ImageFont
@@ -7,8 +14,9 @@ import uuid
 import json
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+UPLOAD_FOLDER = "uploads"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
 
 def process_image(image_path, original_filename):
     """
@@ -20,30 +28,27 @@ def process_image(image_path, original_filename):
 
         # The prompt now asks for coordinates normalized to 0-1000.
         prompt = "Detect the all of the text boxes in the image. The box_2d should be [ymin, xmin, ymax, xmax] normalized to 0-1000. The label should be translated into Chinese."
-        command = f"""llm --schema '{
-  "type": "object",
-  "properties": {
-    "labeled_boxes": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "label_translated": {
-            "type": "string"
-          },
-          "box_2d": {
-            "type": "array",
-            "items": {
-                "type": "integer"
-            }
-          }
+        schema_dict = {
+            "type": "object",
+            "properties": {
+                "labeled_boxes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "label_translated": {"type": "string"},
+                            "box_2d": {"type": "array", "items": {"type": "integer"}},
+                        },
+                    },
+                }
+            },
         }
-      }
-    }
-  }
-}' '{prompt}' -a '{image_path}'"""
-        
-        result = subprocess.run(command, shell=True, capture_output=True, text=True, check=True)
+        schema_json = json.dumps(schema_dict)
+        command = f"llm --schema '{schema_json}' '{prompt}' -a '{image_path}'"
+
+        result = subprocess.run(
+            command, shell=True, capture_output=True, text=True, check=True
+        )
         output = result.stdout
 
         # Extract json from the output
@@ -67,9 +72,9 @@ def process_image(image_path, original_filename):
             font = ImageFont.load_default()
 
         for box in bounding_boxes:
-            box_2d = box['box_2d']
-            label = box.get('label_translated', '') # Use .get for safety
-            
+            box_2d = box["box_2d"]
+            label = box.get("label_translated", "")  # Use .get for safety
+
             # Convert normalized coordinates to absolute pixel values
             y1 = int(box_2d[0] / 1000 * original_height)
             x1 = int(box_2d[1] / 1000 * original_width)
@@ -77,13 +82,13 @@ def process_image(image_path, original_filename):
             x2 = int(box_2d[3] / 1000 * original_width)
 
             draw.rectangle([(x1, y1), (x2, y2)], outline="red", width=3)
-            
+
             # Draw text label
-            text_position = (x1, y1 - 20) # 20 pixels above the box
+            text_position = (x1, y1 - 20)  # 20 pixels above the box
             draw.text(text_position, label, fill="red", font=font)
 
         processed_filename = f"processed_{original_filename}"
-        processed_path = os.path.join(app.config['UPLOAD_FOLDER'], processed_filename)
+        processed_path = os.path.join(app.config["UPLOAD_FOLDER"], processed_filename)
         img.save(processed_path)
         return processed_filename
     except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
@@ -91,30 +96,36 @@ def process_image(image_path, original_filename):
         return None
 
 
-
-@app.route('/')
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
-@app.route('/upload', methods=['POST'])
+
+@app.route("/upload", methods=["POST"])
 def upload_file():
-    if 'file' not in request.files:
+    if "file" not in request.files:
         return redirect(request.url)
-    file = request.files['file']
-    if file.filename == '':
+    file = request.files["file"]
+    if file.filename == "":
         return redirect(request.url)
     if file:
         original_filename = f"{uuid.uuid4()}_{file.filename}"
-        original_path = os.path.join(app.config['UPLOAD_FOLDER'], original_filename)
+        original_path = os.path.join(app.config["UPLOAD_FOLDER"], original_filename)
         file.save(original_path)
 
         processed_filename = process_image(original_path, original_filename)
 
-        return render_template('index.html', original_image=original_filename, processed_image=processed_filename)
+        return render_template(
+            "index.html",
+            original_image=original_filename,
+            processed_image=processed_filename,
+        )
 
-@app.route('/uploads/<filename>')
+
+@app.route("/uploads/<filename>")
 def serve_image(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True, port=5010)

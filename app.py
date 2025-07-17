@@ -44,7 +44,7 @@ def process_image(image_path, original_filename):
             },
         }
         schema_json = json.dumps(schema_dict)
-        command = f"llm --schema '{schema_json}' '{prompt}' -a '{image_path}'"
+        command = f"llm -m gemini-2.0-flash --schema '{schema_json}' '{prompt}' -a '{image_path}'"
 
         print(command) # KEEP
         result = subprocess.run(
